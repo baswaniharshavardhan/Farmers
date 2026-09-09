@@ -1,0 +1,6 @@
+{
+  "name": "FarmDirect Marketplace & Logistics",
+  "description": "Dual-interface local produce marketplace with transparent pricing breakdown, real-time inventory synchronization, and batch pickup routing optimization.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
