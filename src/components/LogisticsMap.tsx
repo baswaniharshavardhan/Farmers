@@ -427,7 +427,7 @@ export const LogisticsMap: React.FC<{ height?: string }> = ({ height = '500px' }
           </span>
 
           <span className="inline-flex items-center gap-1 px-2 py-1 bg-sky-100 text-sky-800 rounded-md whitespace-nowrap font-medium text-[11px]">
-            🏢 Start: {hub.name.split(' ')[0]} Hub
+            🏢 Start: {hub.name ? hub.name.split(' ')[0] : 'Regional'} Hub
           </span>
           <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />
 
@@ -440,7 +440,7 @@ export const LogisticsMap: React.FC<{ height?: string }> = ({ height = '500px' }
                     stop.pickedUp ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                   }`}
                 >
-                  🌱 Stop #{stop.sequenceOrder}: {stop.farmName.split(' ')[0]} ({stop.boxCount} boxes)
+                  🌱 Stop #{stop.sequenceOrder}: {stop.farmName ? stop.farmName.split(' ')[0] : 'Farm'} ({stop.boxCount} boxes)
                 </span>
                 <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />
               </React.Fragment>
@@ -456,7 +456,7 @@ export const LogisticsMap: React.FC<{ height?: string }> = ({ height = '500px' }
             .map((stop, idx) => (
               <React.Fragment key={stop.orderId}>
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-md whitespace-nowrap font-medium text-[11px]">
-                  🏡 Stop #{stop.sequenceOrder}: {stop.buyerName.split(' ')[0]} ({stop.address.split(',')[0]})
+                  🏡 Stop #{stop.sequenceOrder}: {stop.buyerName ? stop.buyerName.split(' ')[0] : 'Customer'} ({stop.address ? stop.address.split(',')[0] : 'Doorstep'})
                 </span>
                 {idx < activeBatch.deliveryStops.length - 1 && (
                   <ArrowRight className="w-3 h-3 text-neutral-400 flex-shrink-0" />

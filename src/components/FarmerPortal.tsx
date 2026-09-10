@@ -18,17 +18,26 @@ import {
   Printer,
   FileText,
   BadgeCheck,
+  Building2,
+  Landmark,
+  User,
+  ChevronRight,
+  BookOpen,
+  Calendar,
+  MapPin,
+  HelpCircle,
 } from 'lucide-react';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { Product, OrderStatus, ShippingLabelData } from '../types';
 import { PricingBreakdown } from './PricingBreakdown';
 import { ShippingLabelModal } from './ShippingLabelModal';
+import { FarmerDashboardTips } from './FarmerDashboardTips';
+import { FarmerSchemesModal } from './FarmerSchemesModal';
+import { UserProfileModal } from './UserProfileModal';
 
 export const FarmerPortal: React.FC = () => {
   const {
     farms,
-    activeFarmId,
-    setActiveFarmId,
     activeFarm,
     products,
     updateProductStock,
@@ -36,6 +45,8 @@ export const FarmerPortal: React.FC = () => {
     addProduct,
     updateProduct,
     deleteProduct,
+    verifyProductByFPO,
+    dispatchFPOCollection,
     orders,
     payoutRecords,
     updateOrderStatus,
@@ -50,16 +61,18 @@ export const FarmerPortal: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedOrderFilter, setSelectedOrderFilter] = useState<'all' | 'Pending' | 'Dispatched' | 'Delivered'>('all');
   const [activeShippingLabel, setActiveShippingLabel] = useState<ShippingLabelData | null>(null);
+  const [isSchemesModalOpen, setIsSchemesModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   // New Produce Form State
   const [newProduceName, setNewProduceName] = useState('');
   const [newProduceCategory, setNewProduceCategory] = useState<Product['category']>('Vegetables');
   const [newProduceDesc, setNewProduceDesc] = useState('');
-  const [newProducePrice, setNewProducePrice] = useState('4.50');
-  const [newProduceUnit, setNewProduceUnit] = useState('lb');
-  const [newProduceStock, setNewProduceStock] = useState('40');
-  const [newProduceHarvest, setNewProduceHarvest] = useState('Harvested at 6:00 AM');
-  const [newProduceLocation, setNewProduceLocation] = useState('Sonoma County, CA');
+  const [newProducePrice, setNewProducePrice] = useState('45.00');
+  const [newProduceUnit, setNewProduceUnit] = useState('kg');
+  const [newProduceStock, setNewProduceStock] = useState('50');
+  const [newProduceHarvest, setNewProduceHarvest] = useState('Harvested today at 6:00 AM');
+  const [newProduceLocation, setNewProduceLocation] = useState('Nashik Valley, MH');
   const [newProduceImage, setNewProduceImage] = useState(
     'https://images.unsplash.com/photo-1598170845058-32b9d6a5c317?auto=format&fit=crop&w=600&q=80'
   );
@@ -87,9 +100,9 @@ export const FarmerPortal: React.FC = () => {
       name: newProduceName.trim(),
       category: newProduceCategory,
       description: newProduceDesc.trim() || 'Farm fresh organic produce harvested locally.',
-      pricePerUnit: parseFloat(newProducePrice) || 3.5,
-      unit: newProduceUnit.trim() || 'lb',
-      stockQuantity: parseInt(newProduceStock, 10) || 20,
+      pricePerUnit: parseFloat(newProducePrice) || 40,
+      unit: newProduceUnit.trim() || 'kg',
+      stockQuantity: parseInt(newProduceStock, 10) || 30,
       harvestDate: newProduceHarvest.trim() || 'Today',
       location: newProduceLocation.trim() || activeFarm.locationName,
       imageUrl: newProduceImage.trim(),
@@ -121,10 +134,22 @@ export const FarmerPortal: React.FC = () => {
     setEditingProduct(null);
   };
 
+  // Farmer Details fallback
+  const farmerAge = currentUser.age || 46;
+  const farmerGender = currentUser.gender || 'Male';
+  const farmerAadhaar = currentUser.aadhaarNumber || '5829-4102-4821';
+  const farmerLocation = currentUser.farmLocation || activeFarm.locationName;
+  const fpoName = currentUser.fpoName || 'Sahyadri Farmers Producer Co. Ltd. (SFPC)';
+  const fpoNumber = currentUser.fpoNumber || 'FPO-MH-2021-9842';
+  const bankName = currentUser.bankName || 'State Bank of India';
+  const bankAccountNumber = currentUser.bankAccountNumber || '••••••••9842';
+  const ifscCode = currentUser.ifscCode || 'SBIN0001234';
+  const upiId = currentUser.upiId || `${(currentUser.email || 'farmer').split('@')[0]}@okhdfcbank`;
+
   return (
     <div className="space-y-6" id="farmer-portal-app">
-      {/* Producer Header & Farm Switcher */}
-      <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs">
+      {/* SECTION 1: Producer Header, FPO Affiliation & Farmer Profile */}
+      <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <img
@@ -134,51 +159,119 @@ export const FarmerPortal: React.FC = () => {
               referrerPolicy="no-referrer"
             />
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-bold text-neutral-900">{activeFarm.name}</h2>
                 {activeFarm.certifiedOrganic && (
                   <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
                     Certified Organic
                   </span>
                 )}
+                <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-blue-50 text-blue-800 border border-blue-200 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                  FPO Member
+                </span>
               </div>
               <p className="text-xs text-neutral-500 mt-0.5">
-                📍 {activeFarm.locationName} · Lat: {activeFarm.coordinates[0].toFixed(3)}, Lng:{' '}
-                {activeFarm.coordinates[1].toFixed(3)}
+                📍 {activeFarm.locationName} · Collective Hub: Nashik Agro-Cluster
               </p>
               <p className="text-xs text-neutral-600 mt-1 max-w-xl line-clamp-1">{activeFarm.bio}</p>
             </div>
           </div>
 
-          {/* Farm Switcher Dropdown */}
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className="text-[11px] text-neutral-400 font-semibold uppercase">Switch Registered Farm:</div>
-              <select
-                value={activeFarmId}
-                onChange={(e) => setActiveFarmId(e.target.value)}
-                className="mt-1 px-3 py-1.5 bg-neutral-50 border border-neutral-300 rounded-lg text-xs font-semibold text-neutral-800 focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
-                id="select-switch-farm"
-              >
-                {farms.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name} ({f.locationName.split(',')[0]})
-                  </option>
-                ))}
-              </select>
+          {/* Quick Actions: Profile & Schemes */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsSchemesModalOpen(true)}
+              className="px-3.5 py-2 bg-neutral-50 hover:bg-neutral-100 border border-neutral-300 text-neutral-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+              id="btn-open-schemes-guide"
+            >
+              <BookOpen className="w-4 h-4 text-emerald-700" />
+              <span>Govt Schemes &amp; Pesticides</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsProfileModalOpen(true)}
+              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+              id="btn-edit-farmer-profile"
+            >
+              <User className="w-4 h-4" />
+              <span>Farmer Profile &amp; Bank</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Farmer Demographics & FPO Affiliation Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t border-neutral-150">
+          {/* FPO Affiliation Card */}
+          <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-xl">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-900 flex items-center gap-1">
+                <Building2 className="w-3.5 h-3.5 text-emerald-700" />
+                FPO Affiliation
+              </span>
+              <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                Active Member
+              </span>
+            </div>
+            <div className="text-xs font-bold text-neutral-900">{fpoName}</div>
+            <div className="text-[11px] text-neutral-600 mt-1 font-mono">
+              Reg No: <span className="font-bold text-emerald-800">{fpoNumber}</span>
+            </div>
+            <div className="text-[11px] text-neutral-500 mt-0.5">
+              Cluster Inspector: <span className="text-neutral-700 font-medium">Ramesh Yadav (+91 98231 45678)</span>
+            </div>
+          </div>
+
+          {/* Farmer Profile Demographics Card */}
+          <div className="p-3.5 bg-neutral-50 border border-neutral-200 rounded-xl">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-700 flex items-center gap-1">
+                <User className="w-3.5 h-3.5 text-neutral-500" />
+                Farmer Profile Details
+              </span>
+              <span className="text-[10px] font-semibold text-emerald-700">Verified</span>
+            </div>
+            <div className="text-xs font-bold text-neutral-900">{currentUser.name}</div>
+            <div className="text-[11px] text-neutral-600 mt-1">
+              Age: <span className="font-semibold text-neutral-800">{farmerAge} yrs</span> · Gender:{' '}
+              <span className="font-semibold text-neutral-800">{farmerGender}</span>
+            </div>
+            <div className="text-[11px] text-neutral-600 mt-0.5">
+              Aadhaar: <span className="font-mono text-neutral-700">{farmerAadhaar}</span> · 📍 {farmerLocation}
+            </div>
+          </div>
+
+          {/* Bank Account Direct Receiving Card */}
+          <div className="p-3.5 bg-sky-50/70 border border-sky-200 rounded-xl">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-950 flex items-center gap-1">
+                <Landmark className="w-3.5 h-3.5 text-sky-700" />
+                Direct Payout Bank Account
+              </span>
+              <span className="text-[10px] font-bold bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded">
+                88% Net Receiving
+              </span>
+            </div>
+            <div className="text-xs font-bold text-neutral-900">{bankName}</div>
+            <div className="text-[11px] text-neutral-600 mt-1 font-mono">
+              A/C: <span className="font-bold text-neutral-800">{bankAccountNumber}</span> · IFSC: {ifscCode}
+            </div>
+            <div className="text-[11px] text-neutral-600 mt-0.5">
+              UPI ID: <span className="font-semibold text-sky-800">{upiId}</span>
             </div>
           </div>
         </div>
 
         {/* Farmer Economic KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-neutral-150">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-neutral-150">
           <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl">
             <div className="flex items-center gap-1.5 text-xs text-emerald-800 font-medium">
               <DollarSign className="w-4 h-4 text-emerald-600" />
               <span>Net Producer Earnings</span>
             </div>
             <div className="text-lg font-bold text-emerald-950 mt-1">
-              ${activeFarm.totalEarnings.toFixed(2)}
+              ₹{activeFarm.totalEarnings.toFixed(2)}
             </div>
             <div className="text-[11px] text-emerald-700 font-semibold mt-0.5">
               88.0% take-home margin
@@ -210,8 +303,8 @@ export const FarmerPortal: React.FC = () => {
               <ShieldCheck className="w-4 h-4 text-sky-600" />
               <span>Direct Sale Premium</span>
             </div>
-            <div className="text-lg font-bold text-sky-950 mt-1">+73% vs Retail</div>
-            <div className="text-[11px] text-sky-700 mt-0.5">Supermarkets retain ~85%</div>
+            <div className="text-lg font-bold text-sky-950 mt-1">+73% vs Mandi</div>
+            <div className="text-[11px] text-sky-700 mt-0.5">Middlemen retain ~85%</div>
           </div>
         </div>
       </div>
@@ -273,15 +366,15 @@ export const FarmerPortal: React.FC = () => {
         )}
       </div>
 
-      {/* TAB 1: Real-time Inventory & Produce Management */}
+      {/* TAB 1: Real-time Inventory & Produce Management with FPO Verification Workflow */}
       {activeTab === 'inventory' && (
         <div className="space-y-4">
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
             <Sparkles className="w-4 h-4 text-amber-700 mt-0.5 flex-shrink-0" />
             <div>
-              <span className="font-bold">Real-Time Inventory Synchronization:</span> Any change to unit stock or
-              prices here immediately propagates to the Consumer/Buyer App via the central marketplace state. Try
-              adjusting stock or price below and check the buyer view!
+              <span className="font-bold">FPO Product Verification Lifecycle:</span> When you list produce, your FPO
+              assigns a field officer to collect samples and audit organic quality. Once verified, fair-trade advance
+              payments are automatically triggered to your bank account!
             </div>
           </div>
 
@@ -294,8 +387,8 @@ export const FarmerPortal: React.FC = () => {
                     <th className="py-3 px-4">Category</th>
                     <th className="py-3 px-4">Unit Price</th>
                     <th className="py-3 px-4">Farmer Share (88%)</th>
-                    <th className="py-3 px-4">Central Stock (Live)</th>
-                    <th className="py-3 px-4">Harvest Timestamp</th>
+                    <th className="py-3 px-4">Live Inventory</th>
+                    <th className="py-3 px-4">FPO Verification &amp; Inspection</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -303,6 +396,9 @@ export const FarmerPortal: React.FC = () => {
                   {farmProducts.map((prod) => {
                     const farmerShare = Math.round(prod.pricePerUnit * 0.88 * 100) / 100;
                     const isOutOfStock = prod.stockQuantity <= 0;
+                    const isVerified = prod.verificationStatus === 'verified' || !prod.verificationStatus;
+                    const isPendingFpo = prod.verificationStatus === 'pending_fpo_check';
+                    const isInTransit = prod.verificationStatus === 'in_transit_to_hub';
 
                     return (
                       <tr key={prod.id} className="hover:bg-neutral-50/50 transition-colors">
@@ -329,11 +425,11 @@ export const FarmerPortal: React.FC = () => {
 
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-neutral-500">$</span>
+                            <span className="text-neutral-500">₹</span>
                             <input
                               type="number"
-                              step="0.25"
-                              min="0.5"
+                              step="1"
+                              min="1"
                               value={prod.pricePerUnit}
                               onChange={(e) =>
                                 updateProductPrice(prod.id, parseFloat(e.target.value) || prod.pricePerUnit)
@@ -345,7 +441,7 @@ export const FarmerPortal: React.FC = () => {
                         </td>
 
                         <td className="py-3 px-4">
-                          <div className="font-bold text-emerald-700">${farmerShare.toFixed(2)}</div>
+                          <div className="font-bold text-emerald-700">₹{farmerShare.toFixed(2)}</div>
                           <div className="text-[10px] text-neutral-400">88% take-home</div>
                         </td>
 
@@ -386,7 +482,58 @@ export const FarmerPortal: React.FC = () => {
                           )}
                         </td>
 
-                        <td className="py-3 px-4 text-neutral-600">{prod.harvestDate}</td>
+                        {/* Product Verification Workflow Column */}
+                        <td className="py-3 px-4">
+                          {isVerified && (
+                            <div className="space-y-0.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Verified Grade A+
+                              </span>
+                              <div className="text-[10px] text-neutral-500">
+                                Payout Triggered to Bank
+                              </div>
+                            </div>
+                          )}
+
+                          {isPendingFpo && (
+                            <div className="space-y-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                Awaiting FPO Collection
+                              </span>
+                              <div className="text-[10px] text-neutral-500">
+                                Officer: Ramesh Yadav
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => dispatchFPOCollection(prod.id)}
+                                className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold block"
+                              >
+                                Dispatch Collection Van
+                              </button>
+                            </div>
+                          )}
+
+                          {isInTransit && (
+                            <div className="space-y-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
+                                <Truck className="w-3 h-3 text-sky-600" />
+                                FPO Inspector En Route
+                              </span>
+                              <div className="text-[10px] text-neutral-500">
+                                Sample Residue Testing
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => verifyProductByFPO(prod.id)}
+                                className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-[10px] font-bold block"
+                              >
+                                Pass Quality &amp; Pay Advance
+                              </button>
+                            </div>
+                          )}
+                        </td>
 
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
@@ -415,6 +562,9 @@ export const FarmerPortal: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* Farmer Dashboard Tips Section */}
+          <FarmerDashboardTips />
         </div>
       )}
 
@@ -517,17 +667,17 @@ export const FarmerPortal: React.FC = () => {
                                 {item.quantity}x {item.productName}
                               </span>
                               <span className="text-neutral-400">
-                                (${item.unitPrice.toFixed(2)}/{item.unit})
+                                (₹{item.unitPrice.toFixed(2)}/{item.unit})
                               </span>
                               <span className="text-emerald-700 font-bold">
-                                → Payout: ${item.farmerPayout.toFixed(2)} (88%)
+                                → Payout: ₹{item.farmerPayout.toFixed(2)} (88%)
                               </span>
                             </div>
                           ))}
                         </div>
 
                         <div className="text-[11px] text-neutral-500 mt-2">
-                          Buyer: <span className="font-semibold text-neutral-700">{order.buyerName}</span> · Dropoff: {order.buyerAddress.split(',')[0]}
+                          Buyer: <span className="font-semibold text-neutral-700">{order.buyerName}</span> · Dropoff: {order.buyerAddress ? order.buyerAddress.split(',')[0] : 'Destination Hub'}
                         </div>
                       </div>
 
@@ -535,7 +685,7 @@ export const FarmerPortal: React.FC = () => {
                         <div className="text-right">
                           <div className="text-xs text-neutral-400">Your Net Payout:</div>
                           <div className="text-base font-black text-emerald-700">
-                            ${orderFarmPayout.toFixed(2)}
+                            ₹{orderFarmPayout.toFixed(2)}
                           </div>
                         </div>
 
@@ -595,7 +745,7 @@ export const FarmerPortal: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: Transparent Payout Ledger (Verification 2) */}
+      {/* TAB 3: Transparent Payout Ledger */}
       {activeTab === 'payouts' && (
         <div className="space-y-4">
           <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -607,13 +757,13 @@ export const FarmerPortal: React.FC = () => {
                 </h4>
               </div>
               <p className="text-xs text-emerald-800 mt-1 max-w-xl">
-                Every sale mathematically allocates 88% net to your farm account, 7% to regional cold-chain routing,
-                and 5% to technology maintenance. Funds settle instantly on consumer purchase.
+                Every sale mathematically allocates 88% net to your farm bank account, 7% to regional cold-chain routing,
+                and 5% to technology maintenance. Funds settle directly into your bank account.
               </p>
             </div>
             <div className="text-right bg-white px-4 py-2.5 rounded-xl border border-emerald-200 shadow-xs">
               <div className="text-[11px] text-neutral-500 font-semibold uppercase">Total Settled Balance</div>
-              <div className="text-xl font-black text-emerald-700">${activeFarm.totalEarnings.toFixed(2)}</div>
+              <div className="text-xl font-black text-emerald-700">₹{activeFarm.totalEarnings.toFixed(2)}</div>
             </div>
           </div>
 
@@ -659,22 +809,22 @@ export const FarmerPortal: React.FC = () => {
                           <div className="text-[10px] text-neutral-400">({record.unit})</div>
                         </td>
 
-                        <td className="py-3 px-4 font-bold text-neutral-900">${record.grossAmount.toFixed(2)}</td>
+                        <td className="py-3 px-4 font-bold text-neutral-900">₹{record.grossAmount.toFixed(2)}</td>
 
                         <td className="py-3 px-4">
                           <span className="font-bold text-emerald-700 text-sm">
-                            ${record.farmerNetPayout.toFixed(2)}
+                            ₹{record.farmerNetPayout.toFixed(2)}
                           </span>
                           <span className="text-[10px] text-emerald-800 ml-1 font-semibold">(88%)</span>
                         </td>
 
-                        <td className="py-3 px-4 text-neutral-600">${logisticsAmt.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-neutral-600">₹{logisticsAmt.toFixed(2)}</td>
 
-                        <td className="py-3 px-4 text-neutral-600">${platformAmt.toFixed(2)}</td>
+                        <td className="py-3 px-4 text-neutral-600">₹{platformAmt.toFixed(2)}</td>
 
                         <td className="py-3 px-4 text-right">
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3" /> Settled
+                            <CheckCircle2 className="w-3 h-3" /> Settled to Bank
                           </span>
                         </td>
                       </tr>
@@ -693,7 +843,7 @@ export const FarmerPortal: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
             <h3 className="text-base font-bold text-neutral-900 mb-1">List New Produce Item</h3>
             <p className="text-xs text-neutral-500 mb-4">
-              Adding produce for {activeFarm.name}. Automatically enrolled in 88% direct farmer economics.
+              Adding produce for {activeFarm.name}. FPO personnel will collect and check for certification.
             </p>
 
             <form onSubmit={handleAddProduceSubmit} className="space-y-3.5">
@@ -702,7 +852,7 @@ export const FarmerPortal: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Crisp Asian Pears"
+                  placeholder="e.g. Organic Alphonso Mangoes"
                   value={newProduceName}
                   onChange={(e) => setNewProduceName(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
@@ -730,7 +880,7 @@ export const FarmerPortal: React.FC = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. lb, bunch, dozen, 8oz jar"
+                    placeholder="e.g. kg, bunch, box, 500g"
                     value={newProduceUnit}
                     onChange={(e) => setNewProduceUnit(e.target.value)}
                     className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
@@ -740,18 +890,18 @@ export const FarmerPortal: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Price per Unit ($)</label>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Price per Unit (₹)</label>
                   <input
                     type="number"
-                    step="0.25"
-                    min="0.5"
+                    step="1"
+                    min="1"
                     required
                     value={newProducePrice}
                     onChange={(e) => setNewProducePrice(e.target.value)}
                     className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                   />
                   <span className="text-[10px] text-emerald-700 font-semibold mt-0.5 block">
-                    You keep: ${(parseFloat(newProducePrice || '0') * 0.88).toFixed(2)}
+                    You keep: ₹{(parseFloat(newProducePrice || '0') * 0.88).toFixed(2)}
                   </span>
                 </div>
 
@@ -785,7 +935,7 @@ export const FarmerPortal: React.FC = () => {
                     type="text"
                     value={newProduceLocation}
                     onChange={(e) => setNewProduceLocation(e.target.value)}
-                    placeholder="e.g. Sonoma Valley, CA"
+                    placeholder="e.g. Nashik Valley, MH"
                     className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                   />
                 </div>
@@ -815,6 +965,11 @@ export const FarmerPortal: React.FC = () => {
                 </label>
               </div>
 
+              <div className="p-2.5 bg-neutral-50 rounded-lg border border-neutral-200 text-[11px] text-neutral-600">
+                ⚡ <strong>FPO Verification:</strong> Once submitted, personnel (Ramesh Yadav) will be scheduled
+                to collect sample crates for laboratory testing.
+              </div>
+
               <div className="pt-3 flex justify-end gap-2">
                 <button
                   type="button"
@@ -827,7 +982,7 @@ export const FarmerPortal: React.FC = () => {
                   type="submit"
                   className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-xs"
                 >
-                  Publish to Central Marketplace
+                  Submit &amp; Request FPO Inspection
                 </button>
               </div>
             </form>
@@ -858,11 +1013,11 @@ export const FarmerPortal: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Price per Unit ($)</label>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Price per Unit (₹)</label>
                   <input
                     type="number"
-                    step="0.25"
-                    min="0.5"
+                    step="1"
+                    min="1"
                     required
                     value={editingProduct.pricePerUnit}
                     onChange={(e) =>
@@ -921,6 +1076,18 @@ export const FarmerPortal: React.FC = () => {
       <ShippingLabelModal
         labelData={activeShippingLabel}
         onClose={() => setActiveShippingLabel(null)}
+      />
+
+      {/* Farmer Government Schemes, Subsidies & Bio-Pesticide Modal */}
+      <FarmerSchemesModal
+        isOpen={isSchemesModalOpen}
+        onClose={() => setIsSchemesModalOpen(false)}
+      />
+
+      {/* Farmer Profile & Bank Configuration Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
       />
     </div>
   );

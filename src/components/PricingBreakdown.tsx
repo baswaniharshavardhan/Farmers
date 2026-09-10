@@ -33,7 +33,7 @@ export const PricingBreakdown: React.FC<PricingBreakdownProps> = ({
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
             <span>
-              Farmer keeps <strong>${farmerShare.toFixed(2)}</strong> (88%)
+              Farmer keeps <strong>₹{farmerShare.toFixed(2)}</strong> (88%)
             </span>
           </div>
           <button
@@ -55,24 +55,24 @@ export const PricingBreakdown: React.FC<PricingBreakdownProps> = ({
                 <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
                 Farmer Net (88%):
               </span>
-              <strong className="text-emerald-700 font-semibold">${farmerShare.toFixed(2)}</strong>
+              <strong className="text-emerald-700 font-semibold">₹{farmerShare.toFixed(2)}</strong>
             </div>
             <div className="flex justify-between">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-sky-500 inline-block"></span>
                 Cold-Chain &amp; Routing (7%):
               </span>
-              <span className="text-neutral-700">${logisticsShare.toFixed(2)}</span>
+              <span className="text-neutral-700">₹{logisticsShare.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
                 Platform Maintenance (5%):
               </span>
-              <span className="text-neutral-700">${platformShare.toFixed(2)}</span>
+              <span className="text-neutral-700">₹{platformShare.toFixed(2)}</span>
             </div>
             <div className="pt-1.5 border-t border-neutral-150 text-[11px] text-neutral-500">
-              In conventional supermarkets, the farmer receives only ~${conventionalFarmerShare.toFixed(2)} (15%).
+              In conventional supermarkets, the farmer receives only ~₹{conventionalFarmerShare.toFixed(2)} (15%).
             </div>
           </div>
         )}
@@ -134,7 +134,7 @@ export const PricingBreakdown: React.FC<PricingBreakdownProps> = ({
             <span className="text-neutral-700 font-medium">Direct Farmer Take-Home Payout</span>
           </div>
           <div className="text-right">
-            <span className="font-bold text-emerald-700 text-sm">${farmerShare.toFixed(2)}</span>
+            <span className="font-bold text-emerald-700 text-sm">₹{farmerShare.toFixed(2)}</span>
             <span className="text-neutral-400 text-[11px] ml-1.5">(88.0%)</span>
           </div>
         </div>
@@ -145,7 +145,7 @@ export const PricingBreakdown: React.FC<PricingBreakdownProps> = ({
             <span className="text-neutral-700">Rural Collection &amp; Cold-Chain</span>
           </div>
           <div className="text-right">
-            <span className="font-medium text-neutral-800">${logisticsShare.toFixed(2)}</span>
+            <span className="font-medium text-neutral-800">₹{logisticsShare.toFixed(2)}</span>
             <span className="text-neutral-400 text-[11px] ml-1.5">(7.0%)</span>
           </div>
         </div>
@@ -156,7 +156,7 @@ export const PricingBreakdown: React.FC<PricingBreakdownProps> = ({
             <span className="text-neutral-700">Platform Maintenance &amp; Card Processing</span>
           </div>
           <div className="text-right">
-            <span className="font-medium text-neutral-800">${platformShare.toFixed(2)}</span>
+            <span className="font-medium text-neutral-800">₹{platformShare.toFixed(2)}</span>
             <span className="text-neutral-400 text-[11px] ml-1.5">(5.0%)</span>
           </div>
         </div>
@@ -170,8 +170,8 @@ export const PricingBreakdown: React.FC<PricingBreakdownProps> = ({
             <p className="font-semibold text-amber-950">Market Comparison</p>
             <p className="mt-0.5 text-amber-800">
               Conventional supermarket supply chains pay farmers only ~15% (
-              <strong>${conventionalFarmerShare.toFixed(2)}</strong> on this amount). FarmDirect delivers{' '}
-              <strong className="text-emerald-800 font-bold">+${extraFarmerBenefit.toFixed(2)} more</strong> directly to
+              <strong>₹{conventionalFarmerShare.toFixed(2)}</strong> on this amount). FarmDirect delivers{' '}
+              <strong className="text-emerald-800 font-bold">+₹{extraFarmerBenefit.toFixed(2)} more</strong> directly to
               the producer.
             </p>
           </div>

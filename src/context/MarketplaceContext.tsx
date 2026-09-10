@@ -91,6 +91,8 @@ interface MarketplaceContextType {
   addProduct: (product: Omit<Product, 'id' | 'farmId' | 'farmName'>) => Product;
   updateProduct: (productId: string, updates: Partial<Product>) => void;
   deleteProduct: (productId: string) => void;
+  verifyProductByFPO: (productId: string) => void;
+  dispatchFPOCollection: (productId: string) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   acceptOrder: (orderId: string) => void;
   markOrderDelivered: (orderId: string) => void;
@@ -859,10 +861,81 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
       farmerSharePercentage: 88,
       logisticsSharePercentage: 7,
       platformSharePercentage: 5,
+      verificationStatus: 'pending_fpo_check',
+      fpoInspectorAssigned: 'Ramesh Yadav (FPO Field Inspector)',
+      collectionScheduledTime: 'Today within 3 hours',
+      qualityGrade: 'Pending FPO Field Collection',
     };
     setProducts((prev) => [newProd, ...prev]);
-    setSystemNotification(`Added "${newProd.name}" to farm listings`);
+    setSystemNotification(`Produce "${newProd.name}" listed. FPO personnel (Ramesh Yadav) assigned to collect & audit.`);
     return newProd;
+  };
+
+  const dispatchFPOCollection = (productId: string) => {
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? {
+              ...p,
+              verificationStatus: 'in_transit_to_hub',
+              collectionScheduledTime: 'Vehicle dispatched · En route to farm',
+            }
+          : p
+      )
+    );
+    setSystemNotification('FPO collection vehicle dispatched for produce pickup & lab residue testing.');
+  };
+
+  const verifyProductByFPO = (productId: string) => {
+    const target = products.find((p) => p.id === productId);
+    if (!target) return;
+
+    const advancePayout = Math.round(target.pricePerUnit * target.stockQuantity * 0.88 * 100) / 100;
+
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? {
+              ...p,
+              verificationStatus: 'verified',
+              qualityGrade: 'Grade A+ Certified Organic',
+              verificationTimestamp: new Date().toISOString(),
+            }
+          : p
+      )
+    );
+
+    // Trigger instant advance credit record in payout ledger
+    const newPayoutRecord: FarmerPayoutRecord = {
+      id: `fpo-adv-${Date.now()}`,
+      orderId: `FPO-INSP-${productId.slice(-4)}`,
+      farmId: target.farmId,
+      productName: target.name,
+      quantity: target.stockQuantity,
+      unit: target.unit,
+      grossAmount: Math.round(target.pricePerUnit * target.stockQuantity * 100) / 100,
+      farmerNetPayout: advancePayout,
+      payoutRatePercent: 88,
+      timestamp: new Date().toISOString(),
+      status: 'settled',
+    };
+
+    setPayoutRecords((prev) => [newPayoutRecord, ...prev]);
+
+    // Update activeFarm totalEarnings
+    setFarms((prev) =>
+      prev.map((f) =>
+        f.id === target.farmId
+          ? { ...f, totalEarnings: Math.round((f.totalEarnings + advancePayout) * 100) / 100 }
+          : f
+      )
+    );
+
+    setSystemNotification(
+      `✅ FPO Verification Completed! Quality Grade A+ passed. Advance payout of ₹${advancePayout.toFixed(
+        2
+      )} credited to farmer's direct bank account!`
+    );
   };
 
   const updateProduct = (productId: string, updates: Partial<Product>) => {
@@ -1227,6 +1300,8 @@ export const MarketplaceProvider: React.FC<{ children: React.ReactNode }> = ({ c
         addProduct,
         updateProduct,
         deleteProduct,
+        verifyProductByFPO,
+        dispatchFPOCollection,
         updateOrderStatus,
         acceptOrder,
         markOrderDelivered,

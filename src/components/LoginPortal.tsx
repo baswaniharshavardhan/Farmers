@@ -204,7 +204,7 @@ export const LoginPortal: React.FC = () => {
                           : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-neutral-300'
                       }`}
                     >
-                      {acc.name.split(' ')[0]} ({acc.label})
+                      {acc.name ? acc.name.split(' ')[0] : acc.label} ({acc.label})
                     </button>
                   ))}
                 </div>

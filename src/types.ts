@@ -19,6 +19,7 @@ export interface User {
   zipCode?: string;
   deliveryNotes?: string;
   preferredPaymentMethod?: string;
+  dietaryPreferences?: string[];
   // Farmer details
   farmName?: string;
   farmLocation?: string;
@@ -26,6 +27,24 @@ export interface User {
   primaryCrops?: string[];
   acreage?: number;
   payoutAccount?: string;
+  // Farmer profile additions
+  age?: number;
+  aadhaarNumber?: string;
+  gender?: 'Male' | 'Female' | 'Other';
+  location?: string;
+  // FPO Affiliation Details
+  fpoName?: string;
+  fpoNumber?: string;
+  fpoContact?: string;
+  fpoCluster?: string;
+  // Financial Integration (Bank Account Configuration)
+  bankName?: string;
+  accountHolderName?: string;
+  bankAccountNumber?: string;
+  ifscCode?: string;
+  upiId?: string;
+  accountType?: 'Savings' | 'Current';
+  directPayoutActive?: boolean;
 }
 
 export type AppRoute =
@@ -95,6 +114,68 @@ export interface Product {
   farmerSharePercentage: number; // e.g. 88
   logisticsSharePercentage: number; // e.g. 7
   platformSharePercentage: number; // e.g. 5
+  // FPO Verification Lifecycle
+  verificationStatus?: 'pending_fpo_check' | 'fpo_personnel_dispatched' | 'in_transit_to_hub' | 'verified' | 'rejected';
+  fpoInspectorName?: string;
+  fpoInspectorAssigned?: string;
+  collectionScheduledTime?: string;
+  verificationTimestamp?: string;
+  fpoVerifiedAt?: string;
+  fpoInspectionNotes?: string;
+  qualityGrade?: 'Grade A+' | 'Grade A' | 'Grade B' | 'Pending FPO Field Collection' | string;
+  fpoAdvancePaid?: boolean;
+}
+
+export interface CustomerReport {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  category: 'Quality Issue' | 'Damaged Goods' | 'Delayed Delivery' | 'Pricing/Description' | 'FPO Inquiry' | 'General Feedback';
+  title: string;
+  description: string;
+  orderId?: string;
+  productId?: string;
+  urgency: 'Low' | 'Medium' | 'Urgent';
+  status: 'Investigating' | 'Resolved' | 'Action Taken';
+  createdAt: string;
+  resolutionNotes?: string;
+}
+
+export interface FarmerScheme {
+  id: string;
+  title: string;
+  category: 'Direct Income' | 'Equipment & Solar' | 'Crop Insurance' | 'Infrastructure' | 'Organic Certification';
+  authority: string;
+  subsidyPercentage: string;
+  benefitSummary: string;
+  eligibility: string;
+  applicationLink: string;
+  deadline: string;
+  status: 'Open' | 'Ongoing' | 'Upcoming';
+}
+
+export interface PesticideComparison {
+  id: string;
+  pestTarget: string;
+  cropApplicable: string;
+  organicSolution: {
+    name: string;
+    composition: string;
+    toxicityLevel: 'Non-Toxic / Eco-Safe' | 'Low Toxicity';
+    preHarvestInterval: string; // e.g. '0-1 Days'
+    yieldProtectionScore: number; // 1-10
+    costPerAcre: number;
+    recommended: boolean;
+  };
+  chemicalAlternative: {
+    name: string;
+    toxicityLevel: 'High (Red/Yellow Label)' | 'Moderate (Blue Label)';
+    preHarvestInterval: string; // e.g. '14-21 Days'
+    yieldProtectionScore: number;
+    costPerAcre: number;
+    soilDegradationRisk: string;
+  };
 }
 
 export interface CartItem {

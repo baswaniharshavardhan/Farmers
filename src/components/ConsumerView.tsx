@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShoppingBag,
   Search,
@@ -19,11 +19,19 @@ import {
   CreditCard,
   Printer,
   Package,
+  User,
+  Flag,
+  RotateCcw,
+  Compass,
+  Navigation,
 } from 'lucide-react';
 import { useMarketplace } from '../context/MarketplaceContext';
 import { Product, ShippingLabelData } from '../types';
 import { PricingBreakdown } from './PricingBreakdown';
 import { ShippingLabelModal } from './ShippingLabelModal';
+import { FocusedDeliveryMap } from './FocusedDeliveryMap';
+import { UserProfileModal } from './UserProfileModal';
+import { ReportIssueModal } from './ReportIssueModal';
 
 export const ConsumerView: React.FC = () => {
   const {
@@ -33,6 +41,7 @@ export const ConsumerView: React.FC = () => {
     addToCart,
     removeFromCart,
     updateCartQuantity,
+    clearCart,
     getCartTotal,
     getCartBreakdown,
     checkoutCart,
@@ -50,6 +59,11 @@ export const ConsumerView: React.FC = () => {
   const [activeTrackingOrderId, setActiveTrackingOrderId] = useState<string | null>(null);
   const [activeShippingLabel, setActiveShippingLabel] = useState<ShippingLabelData | null>(null);
 
+  // Profile & Reporting modals
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportTargetOrderId, setReportTargetOrderId] = useState<string | undefined>(undefined);
+
   // Checkout form fields (synced with logged-in user profile)
   const [buyerName, setBuyerName] = useState(currentUser?.name || 'Elena Rostova');
   const [buyerAddress, setBuyerAddress] = useState(
@@ -57,10 +71,12 @@ export const ConsumerView: React.FC = () => {
       ? `${currentUser.address}${currentUser.city ? `, ${currentUser.city}` : ''}${
           currentUser.zipCode ? ` ${currentUser.zipCode}` : ''
         }`
-      : '742 Valencia St, Mission District, San Francisco'
+      : 'Flat 402, Green Meadows, Koregaon Park, Pune, MH 411001'
   );
-  const [buyerCoords, setBuyerCoords] = useState<[number, number]>([37.7599, -122.4148]);
-  const [paymentGateway, setPaymentGateway] = useState<'Stripe Escrow' | 'ACH Direct Transfer' | 'Apple Pay Escrow'>('Stripe Escrow');
+  const [buyerCoords, setBuyerCoords] = useState<[number, number]>([18.5362, 73.894]);
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState<'Morning (7 AM - 10 AM)' | 'Afternoon (12 PM - 3 PM)' | 'Evening (5 PM - 8 PM)'>('Morning (7 AM - 10 AM)');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [paymentGateway, setPaymentGateway] = useState<'CashOnDelivery' | 'UPI' | 'Card'>('CashOnDelivery');
   const [checkoutSuccessOrder, setCheckoutSuccessOrder] = useState<any | null>(null);
 
   useEffect(() => {
@@ -95,13 +111,45 @@ export const ConsumerView: React.FC = () => {
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
-    const newOrder = checkoutCart(buyerName, buyerAddress, buyerCoords, paymentGateway);
+    const newOrder = checkoutCart(
+      buyerName,
+      buyerAddress,
+      buyerCoords,
+      paymentGateway === 'CashOnDelivery'
+        ? 'Pay on Delivery'
+        : paymentGateway === 'UPI'
+        ? 'UPI Instant (GPay/PhonePe)'
+        : 'Credit/Debit Card'
+    );
     setCheckoutSuccessOrder(newOrder);
+    // Order-Triggered Activation: immediately activate live delivery tracking for this new order
+    setActiveTrackingOrderId(newOrder.id);
     setIsCheckoutModalOpen(false);
     setIsCartOpen(false);
   };
 
-  const activeTrackingOrder = orders.find((o) => o.id === activeTrackingOrderId);
+  // Active tracking order is ONLY resolved when triggered by an active order or tracking request
+  const activeTrackingOrder = useMemo(() => {
+    if (!activeTrackingOrderId) return null;
+    return (
+      orders.find((o) => o.id === activeTrackingOrderId) ||
+      (checkoutSuccessOrder?.id === activeTrackingOrderId ? checkoutSuccessOrder : null)
+    );
+  }, [activeTrackingOrderId, orders, checkoutSuccessOrder]);
+
+  // Order-Triggered: Find if the customer has an active in-progress order
+  const customerActiveOrder = useMemo(() => {
+    if (checkoutSuccessOrder) return checkoutSuccessOrder;
+    return (
+      orders.find(
+        (o) =>
+          (o.buyerName.toLowerCase().includes(currentUser?.name.toLowerCase() || '') ||
+            o.buyerAddress.toLowerCase().includes(currentUser?.address?.toLowerCase() || '')) &&
+          o.status !== 'delivered' &&
+          o.status !== 'cancelled'
+      ) || (orders.length > 0 && orders[0].status === 'out_for_delivery' ? orders[0] : null)
+    );
+  }, [orders, checkoutSuccessOrder, currentUser]);
 
   return (
     <div className="space-y-6" id="consumer-buyer-app">
@@ -121,15 +169,41 @@ export const ConsumerView: React.FC = () => {
 
           <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-emerald-200 font-medium">
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-300" /> 88% Direct Grower Share
+              <CheckCircle2 className="w-4 h-4 text-emerald-300" /> 88% Direct Farmer Payout
             </span>
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-300" /> Central Real-Time Inventory
+              <CheckCircle2 className="w-4 h-4 text-emerald-300" /> FPO Lab Certified Organic
             </span>
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-300" /> Batched Cold-Chain Delivery
+              <CheckCircle2 className="w-4 h-4 text-emerald-300" /> Doorstep Cold-Chain Delivery
             </span>
           </div>
+        </div>
+
+        {/* Quick Customer Action Buttons */}
+        <div className="relative z-10 mt-5 pt-4 border-t border-emerald-600/60 flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsProfileModalOpen(true)}
+            className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold backdrop-blur-xs flex items-center gap-1.5 border border-white/20 transition-colors"
+            id="btn-customer-profile-open"
+          >
+            <User className="w-3.5 h-3.5" />
+            <span>My Profile</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setReportTargetOrderId(undefined);
+              setIsReportModalOpen(true);
+            }}
+            className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold backdrop-blur-xs flex items-center gap-1.5 border border-white/20 transition-colors"
+            id="btn-customer-report-issue"
+          >
+            <Flag className="w-3.5 h-3.5" />
+            <span>Report an Issue</span>
+          </button>
         </div>
 
         {/* Decorative background accent */}
@@ -138,6 +212,51 @@ export const ConsumerView: React.FC = () => {
         </div>
       </div>
 
+      {/* Order-Triggered Activation: Only displays when customer has an active order */}
+      {customerActiveOrder && (
+        <div
+          className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-emerald-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-200"
+          id="order-triggered-delivery-banner"
+        >
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center justify-center flex-shrink-0">
+              <Truck className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-white">
+                  Active Order #{customerActiveOrder.id}
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-400/30 uppercase">
+                  {customerActiveOrder.status.replace('_', ' ')}
+                </span>
+              </div>
+              <p className="text-xs text-emerald-100/80 mt-0.5">
+                Electric cold-chain van en route to{' '}
+                <strong>
+                  {customerActiveOrder.buyerAddress
+                    ? customerActiveOrder.buyerAddress.split(',')[0]
+                    : 'your doorstep'}
+                </strong>{' '}
+                · ETA: <strong>{customerActiveOrder.deliveryEta || '22 Mins'}</strong>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setActiveTrackingOrderId(customerActiveOrder.id)}
+              className="w-full sm:w-auto px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
+              id="btn-track-active-order-map"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>Track Live Delivery Map</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Search and Filters Bar */}
       <div className="bg-white border border-neutral-200 rounded-xl p-3.5 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
         {/* Search input */}
@@ -145,7 +264,7 @@ export const ConsumerView: React.FC = () => {
           <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search apples, pasture eggs, greens..."
+            placeholder="Search mangoes, organic spinach, honey..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-xs text-neutral-800 placeholder-neutral-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
@@ -180,10 +299,10 @@ export const ConsumerView: React.FC = () => {
             className="w-full md:w-auto px-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-lg text-xs text-neutral-800 font-medium focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
             id="select-farm-filter"
           >
-            <option value="all">All Regional Farms</option>
+            <option value="all">All Member Farms</option>
             {farms.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.name} ({f.locationName.split(',')[0]})
+                {f.name} ({f.locationName ? f.locationName.split(',')[0] : 'Local'})
               </option>
             ))}
           </select>
@@ -208,35 +327,45 @@ export const ConsumerView: React.FC = () => {
 
       {/* Success Order Alert Banner if just completed */}
       {checkoutSuccessOrder && (
-        <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-4 flex items-start justify-between gap-4">
+        <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-4 flex items-start justify-between gap-4 animate-in fade-in">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <div>
               <h4 className="text-sm font-bold text-emerald-950">
-                Purchase Confirmed · Order #{checkoutSuccessOrder.id}
+                Order Confirmed! Reference #{checkoutSuccessOrder.id}
               </h4>
               <p className="text-xs text-emerald-800 mt-0.5">
-                Central database updated! Stock decremented across {checkoutSuccessOrder.items.length} farm items, and{' '}
-                <strong>${checkoutSuccessOrder.totalFarmerPayout.toFixed(2)} (88%)</strong> was credited to registered
-                farmer balances.
+                Central database synchronized. Stock decremented across {checkoutSuccessOrder.items.length} farm items, and{' '}
+                <strong>₹{checkoutSuccessOrder.totalFarmerPayout.toFixed(2)} (88%)</strong> was credited to registered
+                farmer bank accounts.
               </p>
-              <div className="mt-2 flex items-center gap-3">
+              <div className="mt-2.5 flex items-center gap-3 flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
                     setActiveTrackingOrderId(checkoutSuccessOrder.id);
                     setCheckoutSuccessOrder(null);
                   }}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-950 underline"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1.5 rounded-lg shadow-2xs"
                 >
-                  <Truck className="w-3.5 h-3.5" /> Track Live Delivery &amp; Batch
+                  <Truck className="w-3.5 h-3.5" /> Track Focused Delivery
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportTargetOrderId(checkoutSuccessOrder.id);
+                    setIsReportModalOpen(true);
+                  }}
+                  className="text-xs text-neutral-600 hover:text-neutral-900 font-medium"
+                >
+                  Need Help with this Order?
                 </button>
                 <button
                   type="button"
                   onClick={() => setCheckoutSuccessOrder(null)}
-                  className="text-xs text-emerald-600 hover:text-emerald-800"
+                  className="text-xs text-emerald-600 hover:text-emerald-800 ml-2"
                 >
                   Dismiss
                 </button>
@@ -261,92 +390,76 @@ export const ConsumerView: React.FC = () => {
               id={`product-card-${product.id}`}
             >
               {/* Product Image & Badges */}
-              <div className="relative h-48 w-full bg-neutral-100 overflow-hidden cursor-pointer" onClick={() => setInspectingProduct(product)}>
+              <div className="relative aspect-4/3 bg-neutral-100 overflow-hidden">
                 <img
                   src={product.imageUrl}
                   alt={product.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   referrerPolicy="no-referrer"
+                  loading="lazy"
                 />
-                <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5">
+
+                <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
                   {product.organic && (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-800/90 backdrop-blur-xs text-white uppercase tracking-wider">
-                      Certified Organic
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-600 text-white shadow-xs">
+                      Organic
                     </span>
                   )}
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-neutral-900/80 backdrop-blur-xs text-white">
-                    {product.category}
-                  </span>
+                  {product.verificationStatus === 'verified' && (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-600 text-white shadow-xs flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> FPO Grade A+
+                    </span>
+                  )}
                 </div>
 
-                {/* Stock Status Pill */}
                 <div className="absolute top-2.5 right-2.5">
-                  {isOutOfStock ? (
-                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 text-white">
-                      Sold Out
-                    </span>
-                  ) : isLowStock ? (
-                    <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-500 text-white animate-pulse">
-                      Only {product.stockQuantity} left
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-600/90 text-white">
-                      {product.stockQuantity} in stock
-                    </span>
-                  )}
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white/90 text-neutral-800 backdrop-blur-xs shadow-xs">
+                    {product.distanceMiles} km from hub
+                  </span>
                 </div>
 
-                {/* Harvest timestamp badge */}
-                <div className="absolute bottom-2.5 left-2.5 right-2.5 bg-neutral-950/70 backdrop-blur-xs text-neutral-200 px-2.5 py-1 rounded-lg text-[11px] flex items-center justify-between">
-                  <span className="flex items-center gap-1 truncate">
-                    <Calendar className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                    {product.harvestDate}
-                  </span>
-                  <span className="text-emerald-400 font-semibold">{farm?.rating || 4.9} ★</span>
-                </div>
+                {isOutOfStock && (
+                  <div className="absolute inset-0 bg-neutral-900/60 backdrop-blur-2xs flex items-center justify-center">
+                    <span className="px-3 py-1 bg-white text-neutral-900 font-bold text-xs rounded-lg shadow-sm">
+                      Harvest Sold Out
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Card Body */}
               <div className="p-4 flex-1 flex flex-col justify-between">
                 <div>
-                  {/* Farm Link & Crop Location */}
                   <div className="flex items-center justify-between text-xs text-neutral-500 mb-1">
-                    <span className="font-semibold text-emerald-700 truncate">{product.farmName}</span>
-                    <span className="text-[11px] text-neutral-400 truncate">📍 {product.location || farm?.locationName.split(',')[0]}</span>
-                  </div>
-
-                  {/* Title & Description */}
-                  <h3
-                    className="font-bold text-neutral-900 text-base line-clamp-1 cursor-pointer hover:text-emerald-700 transition-colors"
-                    onClick={() => setInspectingProduct(product)}
-                  >
-                    {product.name}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-1 text-[11px] text-neutral-500">
-                    <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px] font-semibold">
-                      🌱 {product.harvestDate}
+                    <span className="font-semibold text-emerald-800 truncate">{product.farmName}</span>
+                    <span className="flex items-center gap-1 flex-shrink-0 text-neutral-400 text-[11px]">
+                      <MapPin className="w-3 h-3" /> {product.location ? product.location.split(',')[0] : 'Regional Farm'}
                     </span>
                   </div>
-                  <p className="text-xs text-neutral-500 mt-1 line-clamp-2 leading-relaxed">
+
+                  <h3 className="font-bold text-neutral-900 text-base leading-tight mb-1">{product.name}</h3>
+
+                  <p className="text-neutral-500 text-xs line-clamp-2 leading-relaxed mb-3">
                     {product.description}
                   </p>
                 </div>
 
-                {/* Pricing & Automated Breakdown */}
-                <div className="mt-4 pt-3 border-t border-neutral-150 space-y-2.5">
+                <div className="space-y-3 pt-2 border-t border-neutral-150">
+                  {/* Price and Farmer share banner */}
                   <div className="flex items-baseline justify-between">
                     <div>
-                      <span className="text-lg font-extrabold text-neutral-900">
-                        ${product.pricePerUnit.toFixed(2)}
+                      <span className="text-xl font-black text-neutral-900">
+                        ₹{product.pricePerUnit.toFixed(2)}
                       </span>
-                      <span className="text-xs text-neutral-500 ml-1">/ {product.unit}</span>
+                      <span className="text-xs text-neutral-500 font-medium ml-1">/ {product.unit}</span>
                     </div>
+
                     <button
                       type="button"
                       onClick={() => setInspectingProduct(product)}
-                      className="text-xs font-semibold text-emerald-700 hover:text-emerald-900"
+                      className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold underline"
                     >
-                      Audit Breakdown →
+                      View Breakdown
                     </button>
                   </div>
 
@@ -433,8 +546,8 @@ export const ConsumerView: React.FC = () => {
                     <span>{inspectingProduct.harvestDate}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-neutral-500">Central Inventory:</span>
-                    <span className="font-semibold text-emerald-700">{inspectingProduct.stockQuantity} units available</span>
+                    <span className="text-neutral-500">Available Stock:</span>
+                    <span className="font-semibold text-emerald-700">{inspectingProduct.stockQuantity} {inspectingProduct.unit}</span>
                   </div>
                 </div>
               </div>
@@ -455,7 +568,7 @@ export const ConsumerView: React.FC = () => {
                 <div className="mt-4 pt-3 border-t border-neutral-200 flex items-center justify-between">
                   <div>
                     <span className="text-2xl font-black text-neutral-900">
-                      ${inspectingProduct.pricePerUnit.toFixed(2)}
+                      ₹{inspectingProduct.pricePerUnit.toFixed(2)}
                     </span>
                     <span className="text-xs text-neutral-500 ml-1">/ {inspectingProduct.unit}</span>
                   </div>
@@ -478,7 +591,7 @@ export const ConsumerView: React.FC = () => {
         </div>
       )}
 
-      {/* Cart Drawer */}
+      {/* Enhanced Shopping Cart Drawer */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 bg-neutral-900/50 backdrop-blur-xs flex justify-end">
           <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
@@ -489,13 +602,25 @@ export const ConsumerView: React.FC = () => {
                 <h3 className="font-bold text-neutral-900 text-base">Direct Produce Cart</h3>
                 <span className="text-xs text-neutral-500 font-medium">({cartItemCount} items)</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsCartOpen(false)}
-                className="p-1 text-neutral-400 hover:text-neutral-600 rounded-lg hover:bg-neutral-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                {cart.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearCart}
+                    className="text-[11px] text-neutral-500 hover:text-rose-600 px-2 py-1"
+                    title="Empty Cart"
+                  >
+                    Clear
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsCartOpen(false)}
+                  className="p-1 text-neutral-400 hover:text-neutral-600 rounded-lg hover:bg-neutral-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Cart Items List */}
@@ -505,7 +630,7 @@ export const ConsumerView: React.FC = () => {
                   <ShoppingBag className="w-12 h-12 stroke-1 mb-2 text-neutral-300" />
                   <p className="text-sm font-medium text-neutral-600">Your direct cart is empty</p>
                   <p className="text-xs text-neutral-400 mt-1 max-w-xs">
-                    Explore fresh harvest items from Sonoma, Napa, and Point Reyes producers.
+                    Explore fresh harvest items directly from Nashik, Pune, and Konkan regional farms.
                   </p>
                 </div>
               ) : (
@@ -524,9 +649,9 @@ export const ConsumerView: React.FC = () => {
                       <div className="text-[10px] text-emerald-700 font-semibold truncate">{product.farmName}</div>
                       <h4 className="text-xs font-bold text-neutral-900 truncate">{product.name}</h4>
                       <div className="text-xs font-bold text-neutral-800 mt-0.5">
-                        ${(product.pricePerUnit * quantity).toFixed(2)}
+                        ₹{(product.pricePerUnit * quantity).toFixed(2)}
                         <span className="text-[10px] font-normal text-neutral-500 ml-1">
-                          (${product.pricePerUnit.toFixed(2)} / {product.unit})
+                          (₹{product.pricePerUnit.toFixed(2)} / {product.unit})
                         </span>
                       </div>
                     </div>
@@ -574,10 +699,10 @@ export const ConsumerView: React.FC = () => {
         </div>
       )}
 
-      {/* Checkout Modal (Simulating instant verified order distribution) */}
+      {/* Enhanced Checkout Modal (Streamlined with Pay-on-Delivery, UPI, and zero upfront friction) */}
       {isCheckoutModalOpen && (
         <div className="fixed inset-0 z-50 bg-neutral-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
             <button
               type="button"
               onClick={() => setIsCheckoutModalOpen(false)}
@@ -593,7 +718,7 @@ export const ConsumerView: React.FC = () => {
               <div>
                 <h3 className="font-bold text-neutral-900 text-base">Direct Consumer Checkout</h3>
                 <p className="text-xs text-neutral-500">
-                  Instant escrow disbursement to registered farmer accounts
+                  Direct harvest allocation with 88% farmer take-home guarantee
                 </p>
               </div>
             </div>
@@ -601,7 +726,7 @@ export const ConsumerView: React.FC = () => {
             <form onSubmit={handleCheckoutSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Recipient Name
+                  Recipient Full Name
                 </label>
                 <input
                   type="text"
@@ -614,7 +739,7 @@ export const ConsumerView: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Delivery Destination (Urban Dropoff Hub / Residence)
+                  Delivery Destination (Doorstep Address)
                 </label>
                 <div className="space-y-2">
                   <input
@@ -624,61 +749,91 @@ export const ConsumerView: React.FC = () => {
                     onChange={(e) => setBuyerAddress(e.target.value)}
                     className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                   />
-                  {/* Quick destination presets in the Bay Area delivery radius */}
+                  {/* Quick regional destination presets */}
                   <div className="flex flex-wrap gap-1.5 text-[11px]">
                     <span className="text-neutral-400 py-0.5">Quick Presets:</span>
                     <button
                       type="button"
                       onClick={() => {
-                        setBuyerAddress('742 Valencia St, Mission District, San Francisco');
-                        setBuyerCoords([37.7599, -122.4148]);
+                        setBuyerAddress('Flat 402, Green Meadows, Koregaon Park, Pune, MH 411001');
+                        setBuyerCoords([18.5362, 73.894]);
                       }}
                       className="px-2 py-0.5 bg-neutral-100 hover:bg-neutral-200 rounded text-neutral-700"
                     >
-                      SF Mission
+                      Pune Koregaon
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        setBuyerAddress('1540 Telegraph Ave, Uptown Oakland');
-                        setBuyerCoords([37.8080, -122.2680]);
+                        setBuyerAddress('12A, Sea View Apts, Bandra West, Mumbai, MH 400050');
+                        setBuyerCoords([19.0596, 72.8295]);
                       }}
                       className="px-2 py-0.5 bg-neutral-100 hover:bg-neutral-200 rounded text-neutral-700"
                     >
-                      Oakland Uptown
+                      Mumbai Bandra
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        setBuyerAddress('2128 Oxford St, Downtown Berkeley');
-                        setBuyerCoords([37.8800, -122.2688]);
+                        setBuyerAddress('Plot 18, Gangapur Road, Anandwalli, Nashik, MH 422013');
+                        setBuyerCoords([19.9975, 73.7898]);
                       }}
                       className="px-2 py-0.5 bg-neutral-100 hover:bg-neutral-200 rounded text-neutral-700"
                     >
-                      Berkeley
+                      Nashik Gangapur
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Payment Gateway Selector */}
+              {/* Delivery Time Slot */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  Preferred Delivery Slot
+                </label>
+                <select
+                  value={deliveryTimeSlot}
+                  onChange={(e) => setDeliveryTimeSlot(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                >
+                  <option value="Morning (7 AM - 10 AM)">Morning (7 AM - 10 AM) - Dawn Harvest Fresh</option>
+                  <option value="Afternoon (12 PM - 3 PM)">Afternoon (12 PM - 3 PM)</option>
+                  <option value="Evening (5 PM - 8 PM)">Evening (5 PM - 8 PM)</option>
+                </select>
+              </div>
+
+              {/* Delivery Instructions */}
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  Delivery Notes / Gate Code (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Leave with building security, call upon arrival"
+                  value={deliveryNotes}
+                  onChange={(e) => setDeliveryNotes(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
+                />
+              </div>
+
+              {/* Streamlined Payment Options (No upfront blockage) */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
-                  Payment Processing Gateway
+                  Payment Method (Pay On Arrival or Instant)
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'Stripe Escrow', label: 'Stripe Connect', desc: 'Auto escrow & splits' },
-                    { id: 'ACH Direct Transfer', label: 'Direct ACH', desc: 'Direct bank debit' },
-                    { id: 'Apple Pay Escrow', label: 'Apple Pay', desc: 'Biometric 1-click' },
+                    { id: 'CashOnDelivery', label: 'Pay on Delivery', desc: 'Cash / UPI at doorstep' },
+                    { id: 'UPI', label: 'Instant UPI', desc: 'GPay, PhonePe, Paytm' },
+                    { id: 'Card', label: 'Debit / Credit', desc: 'RuPay, Visa, Master' },
                   ].map((gateway) => (
                     <button
                       key={gateway.id}
                       type="button"
                       onClick={() => setPaymentGateway(gateway.id as any)}
-                      className={`p-2 rounded-xl text-left border transition-all ${
+                      className={`p-2.5 rounded-xl text-left border transition-all ${
                         paymentGateway === gateway.id
-                          ? 'border-emerald-600 bg-emerald-50/60 ring-1 ring-emerald-600'
+                          ? 'border-emerald-600 bg-emerald-50/70 ring-1 ring-emerald-600'
                           : 'border-neutral-200 hover:border-neutral-300 bg-white'
                       }`}
                     >
@@ -692,20 +847,20 @@ export const ConsumerView: React.FC = () => {
               {/* Economic Settlement Confirmation */}
               <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-1.5 text-xs">
                 <div className="flex justify-between font-medium">
-                  <span className="text-neutral-600">Total Purchase:</span>
-                  <span className="font-bold text-neutral-900">${cartBreakdown.totalAmount.toFixed(2)}</span>
+                  <span className="text-neutral-600">Total Produce Cost:</span>
+                  <span className="font-bold text-neutral-900">₹{cartBreakdown.totalAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-emerald-800 font-bold">
-                  <span>Farmer Escrow Take-Home (88%):</span>
-                  <span>${cartBreakdown.farmerAmount.toFixed(2)}</span>
+                  <span>Direct Farmer Payout (88%):</span>
+                  <span>₹{cartBreakdown.farmerAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-neutral-600">
-                  <span>Refrigerated Route Fee (7%):</span>
-                  <span>${cartBreakdown.logisticsAmount.toFixed(2)}</span>
+                  <span>Refrigerated Last-Mile Hub Routing (7%):</span>
+                  <span>₹{cartBreakdown.logisticsAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-neutral-600">
                   <span>Platform Operations (5%):</span>
-                  <span>${cartBreakdown.platformAmount.toFixed(2)}</span>
+                  <span>₹{cartBreakdown.platformAmount.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -723,10 +878,10 @@ export const ConsumerView: React.FC = () => {
         </div>
       )}
 
-      {/* Order Tracking Modal if requested */}
+      {/* Order Tracking Modal with Focused Delivery Map */}
       {activeTrackingOrder && (
         <div className="fixed inset-0 z-50 bg-neutral-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-150">
             <button
               type="button"
               onClick={() => setActiveTrackingOrderId(null)}
@@ -737,9 +892,9 @@ export const ConsumerView: React.FC = () => {
 
             <div className="flex items-center justify-between mb-3 pr-6">
               <div className="flex items-center gap-2">
-                <Truck className="w-5 h-5 text-purple-700" />
+                <Truck className="w-5 h-5 text-emerald-700" />
                 <h3 className="font-bold text-neutral-900 text-base">
-                  Delivery Tracker · {activeTrackingOrder.id}
+                  Focused Delivery Map · Order {activeTrackingOrder.id}
                 </h3>
               </div>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-700 uppercase">
@@ -747,65 +902,41 @@ export const ConsumerView: React.FC = () => {
               </span>
             </div>
 
-            <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-xs text-purple-900 mb-4 space-y-1">
-              <div className="font-semibold">Estimated Arrival: {activeTrackingOrder.deliveryEta}</div>
-              <div className="text-purple-700 text-[11px]">
-                Destination: {activeTrackingOrder.buyerAddress}
-              </div>
-              <div className="text-purple-600 text-[10px] font-mono flex items-center justify-between pt-1 border-t border-purple-200">
-                <span>Batch: {activeTrackingOrder.assignedBatchId}</span>
-                <span className="font-semibold">Paid via {activeTrackingOrder.paymentGateway || 'Stripe Escrow'}</span>
-              </div>
+            {/* Focused Delivery Map Component */}
+            <div className="mb-4">
+              <FocusedDeliveryMap
+                order={activeTrackingOrder}
+                customerName={activeTrackingOrder.buyerName}
+                customerAddress={activeTrackingOrder.buyerAddress}
+              />
             </div>
 
-            {/* Timeline Steps */}
-            <div className="space-y-3 pl-2 border-l-2 border-emerald-500 text-xs">
-              <div className="relative pl-4">
-                <span className="absolute -left-[13px] top-0.5 w-3 h-3 rounded-full bg-emerald-500"></span>
-                <span className="font-bold text-neutral-900">Order Placed &amp; Funds Escrowed</span>
-                <p className="text-neutral-500 text-[11px]">88% allocated to registered farmers immediately</p>
-              </div>
-              <div className="relative pl-4">
-                <span className={`absolute -left-[13px] top-0.5 w-3 h-3 rounded-full ${
-                  activeTrackingOrder.status !== 'Pending' && activeTrackingOrder.status !== 'order_placed'
-                    ? 'bg-emerald-500'
-                    : 'bg-neutral-300'
-                }`}></span>
-                <span className="font-bold text-neutral-900">Consolidated into Farm Pickup Batch</span>
-                <p className="text-neutral-500 text-[11px]">Route optimizer grouped pickups with nearby orchards</p>
-              </div>
-              <div className="relative pl-4">
-                <span className={`absolute -left-[13px] top-0.5 w-3 h-3 rounded-full ${
-                  activeTrackingOrder.status === 'Dispatched' || activeTrackingOrder.status === 'Delivered' || activeTrackingOrder.status === 'delivered'
-                    ? 'bg-sky-500'
-                    : 'bg-neutral-300'
-                }`}></span>
-                <span className="font-bold text-sky-900">Cold-Chain Sorting &amp; Packing</span>
-                <p className="text-neutral-500 text-[11px]">Emeryville Hub temperature inspection passed</p>
-              </div>
-              <div className="relative pl-4">
-                <span className={`absolute -left-[13px] top-0.5 w-3 h-3 rounded-full ${
-                  activeTrackingOrder.status === 'Delivered' || activeTrackingOrder.status === 'delivered'
-                    ? 'bg-emerald-500'
-                    : 'bg-neutral-300'
-                }`}></span>
-                <span className="font-bold text-purple-900">Out for Last-Mile Delivery</span>
-                <p className="text-neutral-500 text-[11px]">Electric cold-van on optimized dropoff sequence</p>
-              </div>
-            </div>
+            <div className="mt-4 pt-3 border-t border-neutral-200 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const label = getShippingLabelData(activeTrackingOrder.id);
+                    setActiveShippingLabel(label);
+                  }}
+                  className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-neutral-300"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Inspect Cold-Chain Tag</span>
+                </button>
 
-            <div className="mt-5 pt-3 border-t border-neutral-200 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  const label = getShippingLabelData(activeTrackingOrder.id);
-                  setActiveShippingLabel(label);
-                }}
-                className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-neutral-300"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Inspect Shipping Label</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportTargetOrderId(activeTrackingOrder.id);
+                    setIsReportModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-rose-200"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>Report Order Issue</span>
+                </button>
+              </div>
 
               <button
                 type="button"
@@ -818,6 +949,19 @@ export const ConsumerView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Customer User Profile Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
+
+      {/* Customer Issue Reporting Modal */}
+      <ReportIssueModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        initialOrderId={reportTargetOrderId}
+      />
 
       {/* Cold-Chain Shipping Label Modal */}
       <ShippingLabelModal

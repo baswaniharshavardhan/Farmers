@@ -28,6 +28,7 @@ import { VerificationPanel } from './components/VerificationPanel';
 import { AdminPortal } from './components/AdminPortal';
 import { LoginPortal } from './components/LoginPortal';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { FocusedDeliveryMap } from './components/FocusedDeliveryMap';
 import { UserRole } from './types';
 
 const MainLayout: React.FC = () => {
@@ -37,6 +38,7 @@ const MainLayout: React.FC = () => {
     logout,
     currentUser,
     users,
+    orders,
     systemNotification,
     setSystemNotification,
     runSimulatedBatchOrder,
@@ -45,6 +47,15 @@ const MainLayout: React.FC = () => {
     navigate,
     authToken,
   } = useMarketplace();
+
+  // Find active order for customer
+  const customerActiveOrder = orders.find(
+    (o) =>
+      (o.buyerName.toLowerCase().includes(currentUser?.name?.toLowerCase() || '') ||
+        o.buyerAddress.toLowerCase().includes(currentUser?.address?.toLowerCase() || '')) &&
+      o.status !== 'Delivered' &&
+      o.status !== 'cancelled'
+  ) || (orders.length > 0 && orders[0].status === 'out_for_delivery' ? orders[0] : null);
 
   // Sub-tabs for the active role
   const [consumerTab, setConsumerTab] = useState<'market' | 'map' | 'economics'>('market');
@@ -146,7 +157,10 @@ const MainLayout: React.FC = () => {
                       id="tab-customer-map"
                     >
                       <Truck className="w-3.5 h-3.5" />
-                      <span>Logistics &amp; Foodshed</span>
+                      <span>Live Delivery Tracking</span>
+                      {customerActiveOrder && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      )}
                     </button>
 
                     <button
@@ -310,67 +324,6 @@ const MainLayout: React.FC = () => {
         </div>
       </header>
 
-      {/* Route & Session Status Bar */}
-      <div className="bg-neutral-900 text-neutral-200 border-b border-neutral-800 px-4 py-2 text-xs">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-800 text-neutral-300 font-mono text-[11px] border border-neutral-700">
-              <span className="text-neutral-400">Current View:</span>
-              <strong className="text-emerald-400">{currentRoute}</strong>
-            </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-neutral-300">
-              <span className="text-neutral-400">Authenticated:</span>
-              <span className="font-semibold text-white">{currentUser.name}</span>
-              <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-amber-300 uppercase font-mono text-[10px] font-bold border border-neutral-700">
-                {currentUser.role}
-              </span>
-            </div>
-          </div>
-
-          {/* Direct Workspace Switcher */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => navigate('/customer-dashboard')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                currentRoute === '/customer-dashboard'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 border border-neutral-700'
-              }`}
-              title="Customer View"
-            >
-              Customer View
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate('/farmer-dashboard')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                currentRoute === '/farmer-dashboard'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 border border-neutral-700'
-              }`}
-              title="Farmer Portal"
-            >
-              Farmer Portal
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate('/admin-dashboard')}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                currentRoute === '/admin-dashboard'
-                  ? 'bg-purple-600 text-white shadow-xs'
-                  : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 border border-neutral-700'
-              }`}
-              title="Admin Governance"
-            >
-              Admin Governance
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Floating System Toast Notification */}
       {systemNotification && (
         <div className="fixed bottom-5 right-5 z-50 bg-neutral-950 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 text-xs max-w-md border border-neutral-800 animate-in slide-in-from-bottom duration-200">
@@ -454,43 +407,60 @@ const MainLayout: React.FC = () => {
                   {consumerTab === 'market' && (
                     <div className="space-y-8">
                       <ConsumerView />
-                      {/* Embedded Mini Logistics Status */}
-                      <div className="pt-8 border-t border-neutral-200">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h3 className="text-base font-bold text-neutral-900">
-                              Live Regional Logistics &amp; Farm Collection Map
-                            </h3>
-                            <p className="text-xs text-neutral-500">
-                              See how your order is consolidated from local orchards through the
-                              Emeryville hub.
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setConsumerTab('map')}
-                            className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer"
-                          >
-                            Expand Logistics Map <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <LogisticsMap height="360px" />
-                      </div>
                     </div>
                   )}
 
                   {consumerTab === 'map' && (
                     <div className="space-y-6">
-                      <div className="bg-white p-5 rounded-2xl border border-neutral-200">
-                        <h2 className="text-lg font-bold text-neutral-900 mb-1">
-                          Regional Cold-Chain Foodshed Map
-                        </h2>
-                        <p className="text-xs text-neutral-500">
-                          Visualizing active farm pickup stops, the Emeryville Central Cold-Chain Hub,
-                          and consolidated consumer drop-off routes.
-                        </p>
-                      </div>
-                      <LogisticsMap height="600px" />
+                      {customerActiveOrder ? (
+                        <>
+                          <div className="bg-white p-5 rounded-2xl border border-neutral-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h2 className="text-lg font-bold text-neutral-900">
+                                  Live Delivery Tracking · Order #{customerActiveOrder.id}
+                                </h2>
+                                <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold border border-emerald-200">
+                                  {customerActiveOrder.status.replace('_', ' ').toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="text-xs text-neutral-500 mt-1">
+                                Real-time final-mile tracking directly to your doorstep with electric cold-van dispatch, live ETA, and continuous temperature monitoring.
+                              </p>
+                            </div>
+                            <div className="text-xs text-right">
+                              <span className="text-neutral-400 block font-semibold uppercase text-[10px]">Estimated Arrival</span>
+                              <span className="text-emerald-700 font-bold text-sm">{customerActiveOrder.deliveryEta || '20-25 Mins'}</span>
+                            </div>
+                          </div>
+                          <FocusedDeliveryMap
+                            order={customerActiveOrder}
+                            customerName={customerActiveOrder.buyerName}
+                            customerAddress={customerActiveOrder.buyerAddress}
+                          />
+                        </>
+                      ) : (
+                        <div className="bg-white p-8 rounded-2xl border border-neutral-200 text-center max-w-md mx-auto space-y-4 shadow-xs">
+                          <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                            <Truck className="w-7 h-7" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-neutral-900 text-base">
+                              Order-Triggered Live Tracking
+                            </h3>
+                            <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">
+                              Real-time delivery routing activates automatically whenever you place an order. Browse the fresh dawn-harvested produce from regional family farms and place an order to track your cold-chain van!
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setConsumerTab('market')}
+                            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            Explore Produce Market
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 
